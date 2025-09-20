@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bus Registration Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-database-compat.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 10px,
+                rgba(255, 255, 255, 0.1) 10px,
+                rgba(255, 255, 255, 0.1) 20px
+            );
+            animation: shimmer 20s linear infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+            position: relative;
+            z-index: 1;
+        }
+
+        .dashboard-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            padding: 30px;
+        }
+
+        .form-section, .list-section {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .form-section:hover, .list-section:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .section-title {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            color: #333;
+            border-bottom: 3px solid #4facfe;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #4facfe;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+            transform: scale(1.02);
+        }
+
+        .route-container {
+            border: 2px dashed #ddd;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 10px;
+            background: #f8f9fa;
+        }
+
+        .destination-item {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+
+        .destination-item input {
+            flex: 2;
+        }
+
+        .destination-item button {
+            flex: 0 0 auto;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            color: #333;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .bus-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 15px;
+            color: white;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .bus-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            transform: translate(30px, -30px);
+        }
+
+        .bus-card:hover {
+            transform: scale(1.02);
+        }
+
+        .bus-number {
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .bus-info {
+            font-size: 0.9em;
+            opacity: 0.9;
+            line-height: 1.4;
+        }
+
+        .location-live {
+            display: inline-block;
+            padding: 4px 8px;
+            background: rgba(46, 204, 113, 0.3);
+            border-radius: 15px;
+            font-size: 0.8em;
+            margin-top: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        .destinations-display {
+            margin-top: 8px;
+        }
+
+        .destination-tag {
+            display: inline-block;
+            padding: 3px 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            font-size: 0.8em;
+            margin: 2px;
+        }
+
+        .no-buses {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+            font-style: italic;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-content {
+                grid-template-columns: 1fr;
+                gap: 20px;
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚌 Bus Registration Dashboard</h1>
+            <p>Manage your bus fleet with real-time tracking</p>
+        </div>
+
+        <div class="dashboard-content">
+            <div class="form-section">
+                <h2 class="section-title">Register New Bus</h2>
+                <form id="busForm">
+                    <div class="form-group">
+                        <label for="busNumber">Bus Number</label>
+                        <input type="text" id="busNumber" name="busNumber" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ownerNumber">Owner Number</label>
+                        <input type="text" id="ownerNumber" name="ownerNumber" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="routeName">Route Name</label>
+                        <input type="text" id="routeName" name="routeName" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Destinations</label>
+                        <div class="route-container">
+                            <div id="destinationsContainer">
+                                <div class="destination-item">
+                                    <input type="text" placeholder="Destination" class="destination-name">
+                                    <button type="button" class="btn btn-danger" onclick="removeDestination(this)">Remove</button>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-secondary" onclick="addDestination()">Add Destination</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="currentLocation">Current Location</label>
+                        <input type="text" id="currentLocation" name="currentLocation" placeholder="Auto-updated when driver logs in" readonly>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Register Bus</button>
+                </form>
+            </div>
+
+            <div class="list-section">
+                <h2 class="section-title">Registered Buses</h2>
+                <div id="busList">
+                    <div class="no-buses">No buses registered yet</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase configuration - Replace with your config
+        const firebaseConfig = {
+            apiKey: "AIzaSyC-v4KECErbZsU4FnRziXV9oGnGpMxSGrQ",
+            authDomain: "busbee-c492e.firebaseapp.com",
+            databaseURL: "https://busbee-c492e-default-rtdb.firebaseio.com",
+            projectId: "busbee-c492e",
+            storageBucket: "busbee-c492e.firebasestorage.app",
+            messagingSenderId: "648897886498",
+            appId: "1:648897886498:web:9c06e1bbec4a2d893bcd7b"
+        };
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // Bus registration form
+        document.getElementById('busForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const busNumber = document.getElementById('busNumber').value;
+            const ownerNumber = document.getElementById('ownerNumber').value;
+            const password = document.getElementById('password').value;
+            const routeName = document.getElementById('routeName').value;
+            const currentLocation = document.getElementById('currentLocation').value || 'Not updated';
+
+            // Collect destinations
+            const destinationItems = document.querySelectorAll('.destination-item');
+            const destinations = [];
+            
+            destinationItems.forEach(item => {
+                const destinationName = item.querySelector('.destination-name').value.trim();
+                
+                if (destinationName) {
+                    destinations.push(destinationName);
+                }
+            });
+
+            const busData = {
+                busNumber: busNumber,
+                ownerNumber: ownerNumber,
+                password: password,
+                routeName: routeName,
+                destinations: destinations,
+                currentLocation: currentLocation,
+                lastUpdated: new Date().toISOString(),
+                isOnline: false
+            };
+
+            // Save to Firebase
+            database.ref('buses/' + busNumber).set(busData)
+                .then(() => {
+                    alert('Bus registered successfully!');
+                    document.getElementById('busForm').reset();
+                    // Reset destinations to single item
+                    document.getElementById('destinationsContainer').innerHTML = `
+                        <div class="destination-item">
+                            <input type="text" placeholder="Destination" class="destination-name">
+                            <button type="button" class="btn btn-danger" onclick="removeDestination(this)">Remove</button>
+                        </div>
+                    `;
+                    loadBuses();
+                })
+                .catch((error) => {
+                    alert('Error registering bus: ' + error.message);
+                });
+        });
+
+        // Add destination function
+        function addDestination() {
+            const destinationItem = document.createElement('div');
+            destinationItem.className = 'destination-item';
+            destinationItem.innerHTML = `
+                <input type="text" placeholder="Destination" class="destination-name">
+                <button type="button" class="btn btn-danger" onclick="removeDestination(this)">Remove</button>
+            `;
+            document.getElementById('destinationsContainer').appendChild(destinationItem);
+        }
+
+        // Remove destination function
+        function removeDestination(button) {
+            const destinationItems = document.querySelectorAll('.destination-item');
+            if (destinationItems.length > 1) {
+                button.parentElement.remove();
+            } else {
+                alert('At least one destination is required');
+            }
+        }
+
+        // Load buses from Firebase
+        function loadBuses() {
+            database.ref('buses').on('value', (snapshot) => {
+                const buses = snapshot.val();
+                const busList = document.getElementById('busList');
+                
+                if (!buses) {
+                    busList.innerHTML = '<div class="no-buses">No buses registered yet</div>';
+                    return;
+                }
+
+                let html = '';
+                Object.keys(buses).forEach(key => {
+                    const bus = buses[key];
+                    const destinationsHtml = bus.destinations ? bus.destinations.map(destination => 
+                        `<span class="destination-tag">${destination}</span>`
+                    ).join('') : '';
+
+                    html += `
+                        <div class="bus-card">
+                            <div class="bus-number">Bus ${bus.busNumber}</div>
+                            <div class="bus-info">
+                                <strong>Owner:</strong> ${bus.ownerNumber}<br>
+                                <strong>Route Name:</strong> ${bus.routeName}<br>
+                                <strong>Location:</strong> ${bus.currentLocation} 
+                                ${bus.isOnline ? '<span class="location-live">🟢 LIVE</span>' : '<span style="color: #ff6b6b;">🔴 OFFLINE</span>'}
+                            </div>
+                            <div class="destinations-display">
+                                <strong>Destinations:</strong><br>
+                                ${destinationsHtml}
+                            </div>
+                        </div>
+                    `;
+                });
+
+                busList.innerHTML = html;
+            });
+        }
+
+        // Simulate location updates (you can remove this in production)
+        function simulateLocationUpdate() {
+            database.ref('buses').once('value', (snapshot) => {
+                const buses = snapshot.val();
+                if (buses) {
+                    Object.keys(buses).forEach(busNumber => {
+                        if (Math.random() > 0.7) { // 30% chance to update
+                            const locations = ['Downtown Station', 'City Center', 'Airport Terminal', 'University Campus', 'Shopping Mall'];
+                            const randomLocation = locations[Math.floor(Math.random() * locations.length)];
+                            
+                            database.ref('buses/' + busNumber).update({
+                                currentLocation: randomLocation,
+                                lastUpdated: new Date().toISOString(),
+                                isOnline: Math.random() > 0.3
+                            });
+                        }
+                    });
+                }
+            });
+        }
+
+        // Initialize dashboard
+        loadBuses();
+        
+        // Simulate updates every 30 seconds (remove in production)
+        setInterval(simulateLocationUpdate, 30000);
+    </script>
+</body>
+</html>
